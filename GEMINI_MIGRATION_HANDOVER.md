@@ -67,17 +67,27 @@ result = generate_content(prompt=完成済みプロンプト文字列)
 # パターン3: 高度な機能を使う場合（Google Search Grounding / JSONモード等）
 # Gemini API の generateContent リクエストペイロード全体をそのまま渡す。
 # レスポンスもGemini APIの生JSON（dict）がそのまま返る。
+# モデルを明示的に切り替えたい場合（例: 通常モード/ディープモードの切替）は model引数を指定する。
+# 省略時は環境変数 GEMINI_MODEL（デフォルト gemini-2.5-flash）が使われる。
 payload = {
     "contents": [{"parts": [{"text": prompt}]}],
     "tools": [{"google_search": {}}],  # grounding使用時
     "generationConfig": {"responseMimeType": "application/json", "responseSchema": {...}},  # JSONモード使用時
 }
-result = generate_advanced(payload)
+result = generate_advanced(payload, model="gemini-2.5-pro")  # ディープモード時は明示的に指定すること
 text = result['candidates'][0]['content']['parts'][0]['text']
 grounding = result['candidates'][0].get('groundingMetadata')  # grounding使用時
 ```
 
 戻り値：`summarize_text` / `generate_content` は `str`。`generate_advanced` は Gemini API の生レスポンス（`dict`）。
+
+**重要：モデル指定について**
+`rtocs_organizer` / `analog_ic_se_strategy_organizer` のように「通常モード（flash）」「ディープモード（pro）」を
+ユーザーが選択できるツールでは、`generate_advanced(payload, model=...)` の `model` 引数を**必ず明示的に指定**すること。
+省略するとデフォルトモデル（`gemini-2.5-flash`）が使われ、画面上でディープモードを選んでいても
+実際にはflashが呼ばれるサイレントバグになる（コスト表示との不整合も発生する）。
+モデル指定は内部的に、直接呼び出し時はURLに反映され、プロキシ経由時はペイロードに`_gemini_model`という
+専用フィールドとして付与されて自宅PC側に伝わる（Gemini API本体には存在しないフィールドなので転送前に除去される）。
 
 **`generate_advanced` を使うべきケース**：Google Search Grounding、JSONモード（responseSchema指定）など、
 単純なテキスト要約を超える機能を使っているツール（例: `rtocs_organizer`, `analog_ic_se_strategy_organizer`）はこちらを使う。
