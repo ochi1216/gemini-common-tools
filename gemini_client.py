@@ -126,6 +126,77 @@ def _call_proxy(text: str, instruction: str) -> str:
     return result['summary']
 
 
+def _call_direct_advanced(payload: dict) -> dict:
+    """Gemini APIを直接呼び出す（リクエストペイロード全体を渡し、レスポンスJSON全体を返す）"""
+    if not GEMINI_API_KEY:
+        raise RuntimeError('GEMINI_API_KEY が設定されていません')
+
+    resp = requests.post(
+        f'{GEMINI_DIRECT_URL}?key={GEMINI_API_KEY}',
+        json=payload,
+        timeout=DIRECT_TIMEOUT
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _call_proxy_advanced(payload: dict) -> dict:
+    """自宅PC経由（ngrok）でGemini APIを呼び出す（/generate 透過エンドポイント経由）"""
+    if not GEMINI_PROXY_URL:
+        raise RuntimeError('GEMINI_PROXY_URL が設定されていません（自宅PCのngrok URLを設定してください）')
+
+    resp = requests.post(
+        f'{GEMINI_PROXY_URL.rstrip("/")}/generate',
+        json=payload,
+        timeout=PROXY_TIMEOUT
+    )
+    resp.raise_for_status()
+    result = resp.json()
+    if 'error' in result:
+        raise RuntimeError(f'プロキシ側エラー: {result["error"]}')
+    return result
+
+
+def generate_advanced(payload: dict, verbose: bool = True) -> dict:
+    """
+    Gemini API への generateContent リクエストペイロード全体（contents / tools / generationConfig 等）
+    をそのまま渡し、レスポンスJSON全体（dict）をそのまま返す汎用関数。
+
+    Google Search Grounding や JSONモード（responseSchema指定）など、
+    summarize_text / generate_content では扱えない高度な機能を使うツール
+    （例: rtocs_organizer, analog_ic_se_strategy_organizer）向け。
+
+    呼び出し側は、既存のペイロード組み立てロジック・レスポンス解析ロジック
+    （groundingMetadataの取得、JSON文字列のパース等）をそのまま流用できる。
+    このプロセスがどちらの経路（直接／プロキシ）で呼び出したかを意識する必要はない。
+
+    使用例:
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "tools": [{"google_search": {}}],
+        }
+        result = generate_advanced(payload)
+        text = result['candidates'][0]['content']['parts'][0]['text']
+        grounding = result['candidates'][0].get('groundingMetadata')
+    """
+    global _direct_disabled
+
+    if not _is_direct_disabled():
+        try:
+            result = _call_direct_advanced(payload)
+            if verbose:
+                print('[gemini_client] 直接Gemini APIで成功（advanced）')
+            return result
+        except Exception as e:
+            _disable_direct()
+            if verbose:
+                print(f'[gemini_client] 直接呼び出し失敗（{e}）→ 以降{_RETRY_DIRECT_AFTER_SECONDS // 60}分間は自宅PC経由（プロキシ）に固定します')
+    elif verbose:
+        print('[gemini_client] 直接呼び出しは無効化中（前回失敗の猶予期間内）→ プロキシ経由で呼び出します')
+
+    return _call_proxy_advanced(payload)
+
+
 def generate_content(prompt: str, verbose: bool = True) -> str:
     """
     直接Gemini APIを試し、失敗したら自宅PC経由にフォールバックする。

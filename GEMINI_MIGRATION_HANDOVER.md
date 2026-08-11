@@ -56,16 +56,37 @@ GEMINI_RETRY_DIRECT_AFTER_SECONDS = 任意。省略時は1800（30分）。直�
 対象スクリプトの修正では、以下の関数だけを使う。内部実装（直接/プロキシ切替ロジック）には触れない。
 
 ```python
-from gemini_client import summarize_text, generate_content
+from gemini_client import summarize_text, generate_content, generate_advanced
 
 # パターン1: テキスト要約（指示文を分離できる場合）
 result = summarize_text(text=本文, instruction="3行で要約して")  # instruction省略可
 
 # パターン2: 汎用（既存コードが1つの完成したプロンプト文字列を作っている場合）
 result = generate_content(prompt=完成済みプロンプト文字列)
+
+# パターン3: 高度な機能を使う場合（Google Search Grounding / JSONモード等）
+# Gemini API の generateContent リクエストペイロード全体をそのまま渡す。
+# レスポンスもGemini APIの生JSON（dict）がそのまま返る。
+payload = {
+    "contents": [{"parts": [{"text": prompt}]}],
+    "tools": [{"google_search": {}}],  # grounding使用時
+    "generationConfig": {"responseMimeType": "application/json", "responseSchema": {...}},  # JSONモード使用時
+}
+result = generate_advanced(payload)
+text = result['candidates'][0]['content']['parts'][0]['text']
+grounding = result['candidates'][0].get('groundingMetadata')  # grounding使用時
 ```
 
-戻り値はどちらも `str`（Geminiの生成テキスト）。
+戻り値：`summarize_text` / `generate_content` は `str`。`generate_advanced` は Gemini API の生レスポンス（`dict`）。
+
+**`generate_advanced` を使うべきケース**：Google Search Grounding、JSONモード（responseSchema指定）など、
+単純なテキスト要約を超える機能を使っているツール（例: `rtocs_organizer`, `analog_ic_se_strategy_organizer`）はこちらを使う。
+既存のペイロード組み立てロジック・レスポンス解析ロジックは変更せず、Gemini API呼び出し部分だけを
+`generate_advanced(payload)`に差し替えれば良い。
+
+**仕組み**：自宅PC側のプロキシ（`/generate`エンドポイント）は、受け取ったペイロードをそのままGemini APIに
+透過転送するだけの単純な中継なので、grounding・JSONモードを含めどんなリクエストでも直接呼び出しと
+同じ結果が得られる。フォールバック時に機能が失われることはない。
 
 ---
 
@@ -100,10 +121,12 @@ result = generate_content(prompt=完成済みプロンプト文字列)
 
 このセクションは各セッションで作業対象を追記・更新すること。
 
-| スクリプト名 | パス | 呼び出しパターン | 移行状況 |
-|---|---|---|---|
-| `onenote_report_generator` | （要確認） | 要確認 | 未着手 |
-| （他、Gemini APIを使う個人開発ツール群） | | | 未着手 |
+| スクリプト名 | パス | 呼び出しパターン | 使用関数 | 移行状況 |
+|---|---|---|---|---|
+| `rtocs_organizer` | `my-claude-code`リポジトリ内 | Google Search Grounding使用 | `generate_advanced` | 未着手（設計方針確定・実装待ち） |
+| `analog_ic_se_strategy_organizer` | `my-claude-code`リポジトリ内 | Google Search Grounding + JSONモード使用 | `generate_advanced` | 未着手（設計方針確定・実装待ち） |
+| `onenote_report_generator` | `my-claude-code`外・別リポジトリ（要確認） | シンプルな要約用途 | `summarize_text` | 未着手（対象リポジトリ未特定） |
+| （他、Gemini APIを使う個人開発ツール群） | | | | 未着手 |
 
 ---
 
