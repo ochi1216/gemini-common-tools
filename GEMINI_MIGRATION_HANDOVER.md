@@ -150,7 +150,7 @@ grounding = result['candidates'][0].get('groundingMetadata')  # grounding使用�
 | スクリプト名 | パス | 呼び出しパターン | 使用関数 | 移行状況 |
 |---|---|---|---|---|
 | `rtocs_organizer` | `my-claude-code`リポジトリ内 | Google Search Grounding使用 | `generate_advanced` | 完了（2026-08-11、`strategy_engine.py`。モック検証済み・実機未検証。`rtocs_organizer_20260711_01.py`旧スクレイパーは対象外） |
-| `analog_ic_se_strategy_organizer` | `my-claude-code`リポジトリ内 | Google Search Grounding + JSONモード使用 | `generate_advanced` | 完了（2026-08-11、`ic_engine.py`。モック検証済み・実機未検証） |
+| `analog_ic_se_strategy_organizer` | `my-claude-code`リポジトリ内 | Google Search Grounding + JSONモード使用 | `generate_advanced` | 完了（2026-08-11、`ic_engine.py`。2026-08-12にステージ0で実機検証済み：会社PC直接失敗→自宅PCプロキシ経由フォールバック→実際のGemini API呼び出し成功。5ステージ全体・JSONモード・ディープモードは実機未検証） |
 | `onenote_report_generator` | `my-claude-code`外・別リポジトリ（要確認） | シンプルな要約用途 | `summarize_text` | 未着手（対象リポジトリ未特定） |
 | （他、Gemini APIを使う個人開発ツール群） | | | | 未着手 |
 
