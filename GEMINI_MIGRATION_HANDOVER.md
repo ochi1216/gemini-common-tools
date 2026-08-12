@@ -46,6 +46,22 @@ GEMINI_MODEL                    = 任意。省略時は gemini-2.5-flash
 GEMINI_RETRY_DIRECT_AFTER_SECONDS = 任意。省略時は1800（30分）。直接呼び出し再試行までの待機秒数
 ```
 
+**移行対象スクリプト側で追加設定が必要な環境変数（各スクリプトのimport部分で使用）:**
+
+```
+GEMINI_COMMON_DIR = gemini_client.pyの配置フォルダを明示指定（任意）
+```
+
+`rtocs_organizer`/`analog_ic_se_strategy_organizer`のようにgitリポジトリのsubmoduleとして
+`common/`を使う場合は、各スクリプトの1つ上の階層に`common`フォルダがある前提で自動的に見つかる
+（`GEMINI_COMMON_DIR`は省略可）。しかし**対象スクリプトをgitリポジトリと異なるローカルフォルダ構成で
+管理している場合**（越智さんの実際の環境がこれに該当：`rtocs_organizer`は`bbt\RTOCS_organizer`、
+`analog_ic_se_strategy_organizer`は`SE_Strategy\analog_ic_se_strategy_organizer`と、
+管理フォルダがツールごとにバラバラ）は、相対パスでは`gemini_client.py`を見つけられず
+`ModuleNotFoundError`になる。この場合は`gemini_client.py`をどこか1箇所に配置し、
+全スクリプトから`GEMINI_COMMON_DIR`でその場所を指すよう設定すること。
+`onenote_report_generator`等、今後移行する他のスクリプトでも同様の対応が必要になる可能性が高い。
+
 **注意**：`GEMINI_PROXY_URL` はngrok無料プランのため、自宅PC側でngrokを再起動すると値が変わる。
 最新URLは越智さんに都度確認すること（固定化には有料プラン移行 or VPS移行が今後の検討候補）。
 
